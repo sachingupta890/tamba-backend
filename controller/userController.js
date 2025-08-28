@@ -26,31 +26,37 @@ export const register = async (req, res) => {
 };
 
 
-export const login = async (req, res) => {
+export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res
-        .status(400)
-        .json({ message: "Email and password are required" });
+    const user = await User.findOne({ email });
+
+    if (user && (await user.matchPassword(password))) {
+      // Assuming you have a matchPassword method
+      const token = jwt.sign({ id: user._id }, envConfig.jwtSecret, {
+        expiresIn: "30d",
+      });
+
+      // --- YEH SABSE IMPORTANT FIX HAI ---
+      res.cookie("token", token, {
+        httpOnly: true,
+        secure: true, // Production mein hamesha true
+        sameSite: "None", // Cross-domain ke liye zaroori
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 din
+      });
+
+      res.status(200).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        wishlist: user.wishlist,
+      });
+    } else {
+      res.status(401).json({ message: "Invalid email or password" });
     }
-
-    const { token, user } = await loginUser({ email, password });
-
-    // Set token in a secure, httpOnly cookie
-    res.cookie("token", token, {
-      httpOnly: true, // Prevents client-side JS from accessing the cookie
-      secure: process.env.NODE_ENV === "production", // Only send over HTTPS in production
-      sameSite: "strict", // Mitigates CSRF attacks
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
-    });
-
-    res.status(200).json({
-      message: "Logged in successfully",
-      user,
-    });
   } catch (error) {
-    res.status(401).json({ message: error.message || "Login failed" });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
