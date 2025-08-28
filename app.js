@@ -6,7 +6,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: "https://tamba-frontend.vercel.app/",
+    origin: "https://tamba-frontend.vercel.app",
     credentials: true,
   })
 );
