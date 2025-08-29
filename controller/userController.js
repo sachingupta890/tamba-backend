@@ -36,6 +36,7 @@ export const login = async (req, res) => {
     }
 
     const { token, user } = await loginUser({ email, password });
+    
 
     // Set token in a secure, httpOnly cookie
       res.cookie("token", token, {
@@ -47,7 +48,14 @@ export const login = async (req, res) => {
 
     res.status(200).json({
       message: "Logged in successfully",
-      user,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        wishlist: user.wishlist,
+        token: token, // Add the token here
+      },
     });
   } catch (error) {
     res.status(401).json({ message: error.message || "Login failed" });
