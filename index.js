@@ -11,7 +11,7 @@ const httpServer = createServer(app); // Express app ko wrap karein
 const io = new Server(httpServer, {
   cors: {
     origin: "https://tamba-frontend.vercel.app", // Yahan apna Vercel URL daalein
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST","PUT"],
     credentials: true,
   },
 });
