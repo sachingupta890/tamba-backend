@@ -80,6 +80,16 @@ export const updateStatus = async (req, res) => {
       return res.status(400).json({ message: "Status is required." });
     }
     const updatedLead = await updateLeadStatus(leadId, status);
+
+    if (updatedLead.userId) {
+      const recipientSocketId = req.onlineUsers[updatedLead.userId.toString()];
+      if (recipientSocketId) {
+        req.io.to(recipientSocketId).emit("notification", {
+          message: `Your request #${updatedLead.leadId} has been updated to "${status}".`,
+        });
+      }
+    }
+    
     res.status(200).json(updatedLead);
   } catch (error) {
     res.status(500).json({ message: error.message });
