@@ -1,6 +1,7 @@
 import { createLead, getAllLeads, getLeadsByUser, getRecentLeads, updateLeadStatus } from "../services/leadService.js";
 import User from "../models/user.js"
 import logger from "../config/logger.js";
+import { createNotification } from "../services/notificationService.js";
 
 /**
  * Controller to handle fetching recent leads.
@@ -78,48 +79,39 @@ export const updateStatus = async (req, res) => {
     const { leadId } = req.params;
     const { status } = req.body;
 
-    logger.info(
-      `Attempting to update status for leadId: ${leadId} to "${status}"`
-    );
-
-    if (!status) {
-      logger.warn(
-        `Status update failed for leadId: ${leadId} - Status not provided.`
-      );
-      return res.status(400).json({ message: "Status is required." });
-    }
+    // ... (status check)
 
     const updatedLead = await updateLeadStatus(leadId, status);
     logger.info(`Successfully updated status for leadId: ${leadId}`);
 
+    // --- NOTIFICATION LOGIC ---
     if (updatedLead.userId) {
-      const recipientSocketId = req.onlineUsers[updatedLead.userId.toString()];
-      if (recipientSocketId) {
-        logger.info(`Emitting notification to user: ${updatedLead.userId}`);
-        req.io.to(recipientSocketId).emit("notification", {
-          message: `Your request #${updatedLead.leadId} has been updated to "${status}".`,
-        });
+      const message = `Your request #${updatedLead.leadId} has been updated to "${status}".`;
+
+      // Step 1: Hamesha notification ko database mein save karein
+      await createNotification(updatedLead.userId, message);
+
+      // Step 2: Check karein ki user online hai ya nahi
+      if (req.onlineUsers && req.onlineUsers[updatedLead.userId.toString()]) {
+        const recipientSocketId =
+          req.onlineUsers[updatedLead.userId.toString()];
+        logger.info(
+          `Emitting real-time notification to user: ${updatedLead.userId}`
+        );
+        req.io.to(recipientSocketId).emit("notification", { message });
       } else {
         logger.warn(
-          `Could not find online user to notify: ${updatedLead.userId}`
+          `User ${updatedLead.userId} is offline. Notification saved to DB.`
         );
       }
     }
 
     res.status(200).json(updatedLead);
   } catch (error) {
-    // --- DETAILED ERROR LOGGING ---
-    logger.error(
-      `Failed to update lead status for leadId: ${req.params.leadId}. Error: ${error.message}`,
-      {
-        stack: error.stack,
-        leadId: req.params.leadId,
-        body: req.body,
-      }
-    );
-    res.status(500).json({ message: error.message });
+    // ... (error logging)
   }
 };
+
 
 
 export const getUserLeads = async (req, res) => {
